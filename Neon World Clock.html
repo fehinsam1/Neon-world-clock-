@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+<title>Neon World Clock — Unified</title>
+
+<style>
+:root{
+  --bg:#05060a;
+  --card:#0b0d12;
+  --glass: rgba(255,255,255,0.03);
+  --neon1:#00e6ff;
+  --neon2:#a13cff;
+  --neon3:#ff3cac;
+  --muted: rgba(255,255,255,0.38);
+  --faceGlow: #a13cff;
+  --trailColor: #ff3cac;
+  --minuteColor: #00e6ff;
+  --hourColor: #a13cff;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:
+    radial-gradient(900px 400px at 10% 10%, rgba(161,60,255,0.06), transparent),
+    radial-gradient(700px 300px at 90% 90%, rgba(255,60,172,0.03), transparent),
+    var(--bg);
+  color:#e8f9ff;
+  font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;
+  -webkit-font-smoothing:antialiased;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+
+/* container */
+.panel{
+  width:980px; max-width:98vw; border-radius:18px; padding:18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.03);
+  box-shadow: 0 14px 60px rgba(2,6,12,0.7);
+  display:grid;
+  grid-template-columns:360px 1fr;
+  gap:16px;
+  align-items:start;
+}
+
+/* left column */
+.left{ display:flex; flex-direction:column; gap:12px; align-items:center }
+.face-wrap{ width:320px; max-width:88vw; display:flex; flex-direction:column; gap:8px; align-items:center }
+.face{
+  width:320px; height:320px; border-radius:50%; position:relative;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,0.02), transparent),
+    linear-gradient(180deg, rgba(255,255,255,0.01), transparent);
+  border:1px solid rgba(255,255,255,0.03);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+  display:flex; align-items:center; justify-content:center;
+  transition: transform .25s ease;
+  transform-origin:center;
+  touch-action: manipulation;
+}
+.face:hover{ transform: translateY(-6px) scale(1.006) }
+
+.tick{ position:absolute; width:2px; height:12px; background:linear-gradient(180deg,var(--neon1),var(--neon2));
+  top:18px; left:50%; transform-origin:50% 154px; border-radius:2px; box-shadow:0 0 12px rgba(0,230,255,0.32);
+  opacity:.95; transition: opacity .12s linear, background-color .12s linear, box-shadow .12s linear;}
+.tick.hour{ height:22px; width:4px; transform-origin:50% 130px }
+
+.hand{ position:absolute; left:50%; top:50%; transform-origin:50% 92%;
+  border-radius:6px; box-shadow:0 0 20px rgba(255,60,172,0.24); transition: transform .12s linear; will-change: transform }
+.hand.hour{ width:8px; height:86px; margin-top:-86px; background:var(--hourColor) }
+.hand.minute{ width:6px; height:122px; margin-top:-122px; background:var(--minuteColor) }
+.hand.second{ width:3px; height:150px; margin-top:-150px;
+  background: linear-gradient(180deg,var(--trailColor),#fff) }
+
+.center-dot{ position:absolute; width:12px; height:12px; border-radius:50%;
+  background: radial-gradient(circle at 30% 30%, #fff, rgba(255,255,255,0.6)), var(--neon2);
+  box-shadow:0 0 18px rgba(161,60,255,0.44); z-index:6 }
+
+.digital-row{ display:flex; gap:8px; align-items:center; justify-content:center; width:100% }
+.digital{
+  padding:10px 14px; border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  font-weight:700; font-size:20px; color:#e8f9ff; border:1px solid rgba(255,255,255,0.02); letter-spacing:1px; min-width:140px; text-align:center;
+}
+
+/* controls */
+.controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; width:100%; max-width:360px }
+.search-wrap{ position:relative; width:100% }
+.search{ width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.04);
+  background:transparent; color:inherit; font-weight:600; outline:none; box-shadow: inset 0 6px 18px rgba(0,0,0,0.4) }
+.dropdown{ position:absolute; left:0; right:0; max-height:220px; overflow:auto; margin-top:8px; border-radius:10px;
+  background:linear-gradient(180deg, rgba(10,12,18,0.98), rgba(10,12,18,0.94)); border:1px solid rgba(255,255,255,0.03);
+  box-shadow:0 12px 40px rgba(2,6,12,0.7); z-index:50; padding:6px; display:none; transition: opacity .18s }
+.dropdown.show{ display:block }
+.item{ padding:8px 10px; border-radius:8px; font-weight:600; cursor:pointer; display:flex; justify-content:space-between; align-items:center }
+.item:hover{ background:linear-gradient(90deg, rgba(161,60,255,0.06), rgba(255,60,172,0.03)); transform:translateX(4px) }
+
+.btn{ padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.04); background:transparent; color:inherit; cursor:pointer; font-weight:700 }
+.btn.primary{ background:linear-gradient(90deg,var(--neon2),var(--neon3)); color:#fff; border:none; box-shadow:0 12px 36px rgba(161,60,255,0.12) }
+.btn.ghost{ background:transparent; border:1px dashed rgba(255,255,255,0.03) }
+
+/* right column */
+.right{ display:flex; flex-direction:column; gap:12px }
+.list{ display:flex; flex-wrap:wrap; gap:12px }
+.city-card{ min-width:170px; padding:12px; border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  border:1px solid rgba(255,255,255,0.03); backdrop-filter:blur(4px); transition: transform .28s, box-shadow .28s; cursor:pointer; position:relative }
+.city-card:hover{ transform: translateY(-8px); box-shadow: 0 12px 40px rgba(4,6,12,0.6) }
+.city-name{ font-weight:800 }
+.city-time{ font-weight:700; font-size:15px; color:#f4fbff; margin-top:6px }
+.city-card .remove{ position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.04); color:#e8f9ff; display:flex; align-items:center; justify-content:center; font-weight:900; cursor:pointer; opacity:0.8 }
+.city-card .remove:hover{ opacity:1; transform:scale(1.05) }
+
+footer{ grid-column:1 / -1; text-align:center; color:rgba(255,255,255,0.35); font-size:13px; margin-top:2px }
+
+/* helper layers injected by JS */
+#face-glow{ position:absolute; inset:0; border-radius:50%; z-index:0; pointer-events:none; box-shadow:0 0 30px var(--faceGlow), 0 0 60px var(--faceGlow); animation: glowPulse 5s ease-in-out infinite }
+@keyframes glowPulse { 0%,100%{ box-shadow:0 0 30px var(--faceGlow), 0 0 60px var(--faceGlow) } 50%{ box-shadow:0 0 50px var(--faceGlow), 0 0 100px var(--faceGlow) } }
+.sweep{ position:absolute; inset:-10%; border-radius:50%; z-index:1; pointer-events:none; background: conic-gradient(from 0deg, rgba(255,255,255,0) 0deg, rgba(255,255,255,0.10) 8deg, rgba(255,255,255,0) 20deg); animation: sweepRotate 18s linear infinite }
+@keyframes sweepRotate { to { transform: rotate(360deg) } }
+canvas.trail{ position:absolute; inset:0; z-index:1; pointer-events:none }
+
+/* mobile responsive */
+@media (max-width:900px){
+  .panel{ grid-template-columns:1fr; padding:12px }
+  .face{ width:260px; height:260px }
+  .left{ align-items:center }
+  .right{ padding-top:8px }
+}
+
+/* subtle idle dim */
+.dimmed{ opacity:0.86; filter: saturate(0.9) }
+.bright{ opacity:1; filter:none }
+</style>
+</head>
+
+<body>
+  <div class="panel" id="app">
+    <div class="left">
+      <div class="face-wrap">
+        <div class="face" id="analog" role="application" aria-label="Analog world clock">
+          <div class="hand hour" id="hour-hand"></div>
+          <div class="hand minute" id="minute-hand"></div>
+          <div class="hand second" id="second-hand"></div>
+          <div class="center-dot"></div>
+        </div>
+
+        <div class="digital-row">
+          <div class="digital" id="digital">--:--:--</div>
+          <div class="digital tiny" id="zone-label">UTC</div>
+        </div>
+      </div>
+
+      <div class="controls" style="width:100%;max-width:360px">
+        <div style="flex:1" class="search-wrap">
+          <input id="search" class="search" placeholder="Type country or capital — e.g. Ghana, Accra" autocomplete="off" />
+          <div id="dropdown" class="dropdown" role="listbox" aria-label="Timezones list"></div>
+        </div>
+
+        <button id="add-btn" class="btn">Add</button>
+        <button id="sound-toggle" class="btn ghost" title="Toggle sound">Sounds: Both</button>
+        <button id="random-color" class="btn primary">Neon 🌈</button>
+      </div>
+    </div>
+
+    <div class="right">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Saved Clocks</h3><small style="opacity:0.6">Tap to view • Remove with ×</small>
+      </div>
+      <div class="list" id="city-list"></div>
+      <div style="padding-top:6px;color:rgba(255,255,255,0.5);font-size:13px">
+        Tip: search by country or capital. Works in the browser and in Electron.
+      </div>
+    </div>
+
+    <footer>Neon World Clock • One timezone per country (A–Z) • Built with WebAudio</footer>
+  </div>
+
+<script>
+/* Full countryZones array — one main timezone per country (capital-based) */
+const countryZones = [
+  {label:'Afghanistan — Kabul', tz:'Asia/Kabul'},
+  {label:'Albania — Tirana', tz:'Europe/Tirane'},
+  {label:'Algeria — Algiers', tz:'Africa/Algiers'},
+  {label:'Andorra — Andorra la Vella', tz:'Europe/Andorra'},
+  {label:'Angola — Luanda', tz:'Africa/Luanda'},
+  {label:'Antigua and Barbuda — St. John\'s', tz:'America/Antigua'},
+  {label:'Argentina — Buenos Aires', tz:'America/Argentina/Buenos_Aires'},
+  {label:'Armenia — Yerevan', tz:'Asia/Yerevan'},
+  {label:'Australia — Canberra', tz:'Australia/Sydney'},
+  {label:'Austria — Vienna', tz:'Europe/Vienna'},
+  {label:'Azerbaijan — Baku', tz:'Asia/Baku'},
+  {label:'Bahamas — Nassau', tz:'America/Nassau'},
+  {label:'Bahrain — Manama', tz:'Asia/Bahrain'},
+  {label:'Bangladesh — Dhaka', tz:'Asia/Dhaka'},
+  {label:'Barbados — Bridgetown', tz:'America/Barbados'},
+  {label:'Belarus — Minsk', tz:'Europe/Minsk'},
+  {label:'Belgium — Brussels', tz:'Europe/Brussels'},
+  {label:'Belize — Belmopan', tz:'America/Belize'},
+  {label:'Benin — Porto-Novo', tz:'Africa/Porto-Novo'},
+  {label:'Bhutan — Thimphu', tz:'Asia/Thimphu'},
+  {label:'Bolivia — Sucre', tz:'America/La_Paz'},
+  {label:'Bosnia & Herzegovina — Sarajevo', tz:'Europe/Sarajevo'},
+  {label:'Botswana — Gaborone', tz:'Africa/Gaborone'},
+  {label:'Brazil — Brasília', tz:'America/Sao_Paulo'},
+  {label:'Brunei — Bandar Seri Begawan', tz:'Asia/Brunei'},
+  {label:'Bulgaria — Sofia', tz:'Europe/Sofia'},
+  {label:'Burkina Faso — Ouagadougou', tz:'Africa/Ouagadougou'},
+  {label:'Burundi — Gitega', tz:'Africa/Bujumbura'},
+  {label:'Cabo Verde — Praia', tz:'Atlantic/Cape_Verde'},
+  {label:'Cambodia — Phnom Penh', tz:'Asia/Phnom_Penh'},
+  {label:'Cameroon — Yaoundé', tz:'Africa/Douala'},
+  {label:'Canada — Ottawa', tz:'America/Toronto'},
+  {label:'Central African Republic — Bangui', tz:'Africa/Bangui'},
+  {label:'Chad — N\'Djamena', tz:'Africa/Ndjamena'},
+  {label:'Chile — Santiago', tz:'America/Santiago'},
+  {label:'China — Beijing', tz:'Asia/Shanghai'},
+  {label:'Colombia — Bogotá', tz:'America/Bogota'},
+  {label:'Comoros — Moroni', tz:'Indian/Comoro'},
+  {label:'Congo (Brazzaville) — Brazzaville', tz:'Africa/Brazzaville'},
+  {label:'Congo (Kinshasa) — Kinshasa', tz:'Africa/Kinshasa'},
+  {label:'Costa Rica — San José', tz:'America/Costa_Rica'},
+  {label:'Côte d’Ivoire — Yamoussoukro', tz:'Africa/Abidjan'},
+  {label:'Croatia — Zagreb', tz:'Europe/Zagreb'},
+  {label:'Cuba — Havana', tz:'America/Havana'},
+  {label:'Cyprus — Nicosia', tz:'Asia/Nicosia'},
+  {label:'Czechia — Prague', tz:'Europe/Prague'},
+  {label:'Denmark — Copenhagen', tz:'Europe/Copenhagen'},
+  {label:'Djibouti — Djibouti', tz:'Africa/Djibouti'},
+  {label:'Dominica — Roseau', tz:'America/Dominica'},
+  {label:'Dominican Republic — Santo Domingo', tz:'America/Santo_Domingo'},
+  {label:'Ecuador — Quito', tz:'America/Guayaquil'},
+  {label:'Egypt — Cairo', tz:'Africa/Cairo'},
+  {label:'El Salvador — San Salvador', tz:'America/El_Salvador'},
+  {label:'Equatorial Guinea — Malabo', tz:'Africa/Malabo'},
+  {label:'Eritrea — Asmara', tz:'Africa/Asmara'},
+  {label:'Estonia — Tallinn', tz:'Europe/Tallinn'},
+  {label:'Eswatini — Mbabane', tz:'Africa/Mbabane'},
+  {label:'Ethiopia — Addis Ababa', tz:'Africa/Addis_Ababa'},
+  {label:'Federated States of Micronesia — Palikir', tz:'Pacific/Chuuk'},
+  {label:'Fiji — Suva', tz:'Pacific/Fiji'},
+  {label:'Finland — Helsinki', tz:'Europe/Helsinki'},
+  {label:'France — Paris', tz:'Europe/Paris'},
+  {label:'Gabon — Libreville', tz:'Africa/Libreville'},
+  {label:'Gambia — Banjul', tz:'Africa/Banjul'},
+  {label:'Georgia — Tbilisi', tz:'Asia/Tbilisi'},
+  {label:'Germany — Berlin', tz:'Europe/Berlin'},
+  {label:'Ghana — Accra', tz:'Africa/Accra'},
+  {label:'Greece — Athens', tz:'Europe/Athens'},
+  {label:'Grenada — St. George\'s', tz:'America/Grenada'},
+  {label:'Guatemala — Guatemala City', tz:'America/Guatemala'},
+  {label:'Guinea — Conakry', tz:'Africa/Conakry'},
+  {label:'Guinea-Bissau — Bissau', tz:'Africa/Bissau'},
+  {label:'Guyana — Georgetown', tz:'America/Guyana'},
+  {label:'Haiti — Port-au-Prince', tz:'America/Port-au-Prince'},
+  {label:'Honduras — Tegucigalpa', tz:'America/Tegucigalpa'},
+  {label:'Hungary — Budapest', tz:'Europe/Budapest'},
+  {label:'Iceland — Reykjavik', tz:'Atlantic/Reykjavik'},
+  {label:'India — New Delhi', tz:'Asia/Kolkata'},
+  {label:'Indonesia — Jakarta', tz:'Asia/Jakarta'},
+  {label:'Iran — Tehran', tz:'Asia/Tehran'},
+  {label:'Iraq — Baghdad', tz:'Asia/Baghdad'},
+  {label:'Ireland — Dublin', tz:'Europe/Dublin'},
+  {label:'Israel — Jerusalem', tz:'Asia/Jerusalem'},
+  {label:'Italy — Rome', tz:'Europe/Rome'},
+  {label:'Jamaica — Kingston', tz:'America/Jamaica'},
+  {label:'Japan — Tokyo', tz:'Asia/Tokyo'},
+  {label:'Jordan — Amman', tz:'Asia/Amman'},
+  {label:'Kazakhstan — Nur-Sultan', tz:'Asia/Almaty'},
+  {label:'Kenya — Nairobi', tz:'Africa/Nairobi'},
+  {label:'Kiribati — Tarawa', tz:'Pacific/Tarawa'},
+  {label:'Kuwait — Kuwait City', tz:'Asia/Kuwait'},
+  {label:'Kyrgyzstan — Bishkek', tz:'Asia/Bishkek'},
+  {label:'Laos — Vientiane', tz:'Asia/Vientiane'},
+  {label:'Latvia — Riga', tz:'Europe/Riga'},
+  {label:'Lebanon — Beirut', tz:'Asia/Beirut'},
+  {label:'Lesotho — Maseru', tz:'Africa/Maseru'},
+  {label:'Liberia — Monrovia', tz:'Africa/Monrovia'},
+  {label:'Libya — Tripoli', tz:'Africa/Tripoli'},
+  {label:'Liechtenstein — Vaduz', tz:'Europe/Vaduz'},
+  {label:'Lithuania — Vilnius', tz:'Europe/Vilnius'},
+  {label:'Luxembourg — Luxembourg', tz:'Europe/Luxembourg'},
+  {label:'Madagascar — Antananarivo', tz:'Indian/Antananarivo'},
+  {label:'Malawi — Lilongwe', tz:'Africa/Blantyre'},
+  {label:'Malaysia — Kuala Lumpur', tz:'Asia/Kuala_Lumpur'},
+  {label:'Maldives — Malé', tz:'Indian/Maldives'},
+  {label:'Mali — Bamako', tz:'Africa/Bamako'},
+  {label:'Malta — Valletta', tz:'Europe/Malta'},
+  {label:'Marshall Islands — Majuro', tz:'Pacific/Majuro'},
+  {label:'Mauritania — Nouakchott', tz:'Africa/Nouakchott'},
+  {label:'Mauritius — Port Louis', tz:'Indian/Mauritius'},
+  {label:'Mexico — Mexico City', tz:'America/Mexico_City'},
+  {label:'Moldova — Chișinău', tz:'Europe/Chisinau'},
+  {label:'Monaco — Monaco', tz:'Europe/Monaco'},
+  {label:'Mongolia — Ulaanbaatar', tz:'Asia/Ulaanbaatar'},
+  {label:'Montenegro — Podgorica', tz:'Europe/Podgorica'},
+  {label:'Morocco — Rabat', tz:'Africa/Casablanca'},
+  {label:'Mozambique — Maputo', tz:'Africa/Maputo'},
+  {label:'Myanmar — Naypyidaw', tz:'Asia/Yangon'},
+  {label:'Namibia — Windhoek', tz:'Africa/Windhoek'},
+  {label:'Nauru — Yaren', tz:'Pacific/Nauru'},
+  {label:'Nepal — Kathmandu', tz:'Asia/Kathmandu'},
+  {label:'Netherlands — Amsterdam', tz:'Europe/Amsterdam'},
+  {label:'New Zealand — Wellington', tz:'Pacific/Auckland'},
+  {label:'Nicaragua — Managua', tz:'America/Managua'},
+  {label:'Niger — Niamey', tz:'Africa/Niamey'},
+  {label:'Nigeria — Abuja', tz:'Africa/Lagos'},
+  {label:'North Korea — Pyongyang', tz:'Asia/Pyongyang'},
+  {label:'North Macedonia — Skopje', tz:'Europe/Skopje'},
+  {label:'Norway — Oslo', tz:'Europe/Oslo'},
+  {label:'Oman — Muscat', tz:'Asia/Muscat'},
+  {label:'Pakistan — Islamabad', tz:'Asia/Karachi'},
+  {label:'Palau — Ngerulmud', tz:'Pacific/Palau'},
+  {label:'Panama — Panama City', tz:'America/Panama'},
+  {label:'Papua New Guinea — Port Moresby', tz:'Pacific/Port_Moresby'},
+  {label:'Paraguay — Asunción', tz:'America/Asuncion'},
+  {label:'Peru — Lima', tz:'America/Lima'},
+  {label:'Philippines — Manila', tz:'Asia/Manila'},
+  {label:'Poland — Warsaw', tz:'Europe/Warsaw'},
+  {label:'Portugal — Lisbon', tz:'Europe/Lisbon'},
+  {label:'Qatar — Doha', tz:'Asia/Qatar'},
+  {label:'Romania — Bucharest', tz:'Europe/Bucharest'},
+  {label:'Russia — Moscow', tz:'Europe/Moscow'},
+  {label:'Rwanda — Kigali', tz:'Africa/Kigali'},
+  {label:'Saint Kitts & Nevis — Basseterre', tz:'America/St_Kitts'},
+  {label:'Saint Lucia — Castries', tz:'America/St_Lucia'},
+  {label:'Saint Vincent & the Grenadines — Kingstown', tz:'America/St_Vincent'},
+  {label:'Samoa — Apia', tz:'Pacific/Apia'},
+  {label:'San Marino — San Marino', tz:'Europe/San_Marino'},
+  {label:'Sao Tome & Principe — São Tomé', tz:'Africa/Sao_Tome'},
+  {label:'Saudi Arabia — Riyadh', tz:'Asia/Riyadh'},
+  {label:'Senegal — Dakar', tz:'Africa/Dakar'},
+  {label:'Serbia — Belgrade', tz:'Europe/Belgrade'},
+  {label:'Seychelles — Victoria', tz:'Indian/Mahe'},
+  {label:'Sierra Leone — Freetown', tz:'Africa/Freetown'},
+  {label:'Singapore — Singapore', tz:'Asia/Singapore'},
+  {label:'Slovakia — Bratislava', tz:'Europe/Bratislava'},
+  {label:'Slovenia — Ljubljana', tz:'Europe/Ljubljana'},
+  {label:'Solomon Islands — Honiara', tz:'Pacific/Guadalcanal'},
+  {label:'Somalia — Mogadishu', tz:'Africa/Mogadishu'},
+  {label:'South Africa — Pretoria', tz:'Africa/Johannesburg'},
+  {label:'South Korea — Seoul', tz:'Asia/Seoul'},
+  {label:'South Sudan — Juba', tz:'Africa/Juba'},
+  {label:'Spain — Madrid', tz:'Europe/Madrid'},
+  {label:'Sri Lanka — Colombo', tz:'Asia/Colombo'},
+  {label:'Sudan — Khartoum', tz:'Africa/Khartoum'},
+  {label:'Suriname — Paramaribo', tz:'America/Paramaribo'},
+  {label:'Sweden — Stockholm', tz:'Europe/Stockholm'},
+  {label:'Switzerland — Bern', tz:'Europe/Zurich'},
+  {label:'Syria — Damascus', tz:'Asia/Damascus'},
+  {label:'Taiwan — Taipei', tz:'Asia/Taipei'},
+  {label:'Tajikistan — Dushanbe', tz:'Asia/Dushanbe'},
+  {label:'Tanzania — Dodoma', tz:'Africa/Dar_es_Salaam'},
+  {label:'Thailand — Bangkok', tz:'Asia/Bangkok'},
+  {label:'Timor-Leste — Dili', tz:'Asia/Dili'},
+  {label:'Togo — Lomé', tz:'Africa/Lome'},
+  {label:'Tonga — Nukuʻalofa', tz:'Pacific/Tongatapu'},
+  {label:'Trinidad & Tobago — Port of Spain', tz:'America/Port_of_Spain'},
+  {label:'Tunisia — Tunis', tz:'Africa/Tunis'},
+  {label:'Türkiye — Ankara', tz:'Europe/Istanbul'},
+  {label:'Turkmenistan — Ashgabat', tz:'Asia/Ashgabat'},
+  {label:'Tuvalu — Funafuti', tz:'Pacific/Funafuti'},
+  {label:'Uganda — Kampala', tz:'Africa/Kampala'},
+  {label:'Ukraine — Kyiv', tz:'Europe/Kyiv'},
+  {label:'United Arab Emirates — Abu Dhabi', tz:'Asia/Dubai'},
+  {label:'United Kingdom — London', tz:'Europe/London'},
+  {label:'United States — Washington, D.C.', tz:'America/New_York'},
+  {label:'Uruguay — Montevideo', tz:'America/Montevideo'},
+  {label:'Uzbekistan — Tashkent', tz:'Asia/Tashkent'},
+  {label:'Vanuatu — Port Vila', tz:'Pacific/Efate'},
+  {label:'Vatican City — Vatican', tz:'Europe/Vatican'},
+  {label:'Venezuela — Caracas', tz:'America/Caracas'},
+  {label:'Vietnam — Hanoi', tz:'Asia/Ho_Chi_Minh'},
+  {label:'Yemen — Sana\'a', tz:'Asia/Sana\'a'},
+  {label:'Zambia — Lusaka', tz:'Africa/Lusaka'},
+  {label:'Zimbabwe — Harare', tz:'Africa/Harare'}
+];
+
+/* -----------------------
+   All JS below drives the unified clock app.
+   It is the same full-featured script we agreed on.
+   ----------------------- */
+
+const dropdown = document.getElementById('dropdown');
+const search = document.getElementById('search');
+const addBtn = document.getElementById('add-btn');
+const cityList = document.getElementById('city-list');
+const digital = document.getElementById('digital');
+const zoneLabel = document.getElementById('zone-label');
+const soundToggle = document.getElementById('sound-toggle');
+const randomColorBtn = document.getElementById('random-color');
+
+const analog = document.getElementById('analog');
+const hourHand = document.getElementById('hour-hand');
+const minuteHand = document.getElementById('minute-hand');
+const secondHand = document.getElementById('second-hand');
+
+/* Inject helper layers: face glow, sweep, canvas trail */
+(function injectLayers(){
+  const glow = document.createElement('div'); glow.id='face-glow';
+  const sweep = document.createElement('div'); sweep.className='sweep';
+  const canvas = document.createElement('canvas'); canvas.className='trail';
+  analog.prepend(canvas); analog.prepend(sweep); analog.prepend(glow);
+})();
+const trailCanvas = analog.querySelector('canvas.trail');
+const ctx = trailCanvas.getContext('2d');
+
+/* utility */
+const pad = n => String(n).padStart(2,'0');
+function hslToRgbString(h,s,l){ s/=100; l/=100; const k = n => (n + h/30) % 12; const a = s*Math.min(l,1-l); const f = n => Math.round(255*(l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n),1))))); return `rgb(${f(0)}, ${f(8)}, ${f(4)})`; }
+function rgba(rgb,a){ return rgb.replace('rgb','rgba').replace(')',`, ${a})`); }
+function getOffsetMinutes(tz,date){ const local = new Date(date.toLocaleString('en-US',{ timeZone: tz })); return Math.round((local - date)/60000); }
+function formatOffset(mins){ const sign = mins>=0 ? '+' : '-'; const m = Math.abs(mins); return `UTC${sign}${pad(Math.floor(m/60))}:${pad(m%60)}`; }
+function zoneAbbr(tz,date){ try { const parts = Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'short' }).formatToParts(date); return parts.find(p=>p.type==='timeZoneName')?.value || 'UTC'; } catch { return 'UTC' } }
+function dstInfo(tz,date){ const y=date.getUTCFullYear(); const offJan = getOffsetMinutes(tz,new Date(Date.UTC(y,0,1))); const offJul = getOffsetMinutes(tz,new Date(Date.UTC(y,6,1))); const observes = offJan !== offJul; const nowOff = getOffsetMinutes(tz,date); const isDST = observes && nowOff === Math.max(offJan,offJul); return { observes, isDST, nowOff }; }
+
+/* Settings and state */
+const SETTINGS_KEY = 'neonClock.unified.v1';
+let soundMode = 'both';
+let selectedZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+let hour12 = false;
+let chimeEnabled = true;
+let savedClocks = [];
+let lastChimeHour = null;
+let lastZoneMinute = '';
+let lastInteract = Date.now();
+
+/* load saved state */
+(function load(){
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    if (s.soundMode) soundMode = s.soundMode;
+    if (s.selectedZone) selectedZone = s.selectedZone;
+    if (typeof s.hour12 === 'boolean') hour12 = s.hour12;
+    if (typeof s.chimeEnabled === 'boolean') chimeEnabled = s.chimeEnabled;
+    savedClocks = JSON.parse(localStorage.getItem('savedClocks') || '[]') || [];
+  } catch(e){ savedClocks = [] }
+  soundToggle.textContent = `Sounds: ${soundMode[0].toUpperCase()+soundMode.slice(1)}`;
+})();
+
+function saveSettings(){ localStorage.setItem(SETTINGS_KEY, JSON.stringify({ soundMode, selectedZone, hour12, chimeEnabled })); }
+
+/* audio */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function resumeAudio(){ if (audioCtx.state === 'suspended') audioCtx.resume(); }
+window.addEventListener('pointerdown', resumeAudio, { once:true });
+window.addEventListener('keydown', resumeAudio, { once:true });
+
+function playBeep(){ const now=audioCtx.currentTime; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.setValueAtTime(880,now); o.frequency.exponentialRampToValueAtTime(660, now+0.08); g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.25, now+0.01); g.gain.exponentialRampToValueAtTime(0.0001, now+0.12); o.connect(g); g.connect(audioCtx.destination); o.start(now); o.stop(now+0.13) }
+function playZap(){ const now=audioCtx.currentTime; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='square'; o.frequency.setValueAtTime(240,now); o.frequency.exponentialRampToValueAtTime(1200, now+0.09); g.gain.setValueAtTime(0.0001,now); g.gain.exponentialRampToValueAtTime(0.2, now+0.01); g.gain.exponentialRampToValueAtTime(0.0001, now+0.14); o.connect(g); g.connect(audioCtx.destination); o.start(now); o.stop(now+0.16) }
+function playClick(){ if(!audioCtx || soundMode === 'off') return; if(soundMode === 'beep') return playBeep(); if(soundMode === 'zap') return playZap(); playBeep(); playZap(); }
+function playChime(times=1){ if(!audioCtx || audioCtx.state !== 'running') return; const now=audioCtx.currentTime; const base=523.25; for(let i=0;i<times;i++){ const t=now + i*0.25; const o=audioCtx.createOscillator(); const g=audioCtx.createGain(); o.type='sine'; o.frequency.setValueAtTime(base, t); o.frequency.exponentialRampToValueAtTime(base*1.5, t+0.14); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t+0.01); g.gain.exponentialRampToValueAtTime(0.0001, t+0.18); o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.2) } }
+
+/* build ticks and responsive canvas */
+let tickEls = [];
+function buildTicks(){
+  tickEls.forEach(t => t.remove()); tickEls = [];
+  const rect = analog.getBoundingClientRect();
+  const R = Math.min(rect.width, rect.height) / 2;
+  const top = Math.max(10, R*0.06);
+  for(let i=0;i<60;i++){
+    const t = document.createElement('div');
+    t.className = 'tick' + (i%5 === 0 ? ' hour' : '');
+    t.style.left = '50%';
+    t.style.top = `${top}px`;
+    t.style.transformOrigin = `50% ${R-top}px`;
+    t.style.transform = `rotate(${i*6}deg)`;
+    analog.appendChild(t);
+    tickEls.push(t);
+  }
+}
+
+function resizeCanvas(){
+  const rect = analog.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  trailCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  trailCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  trailCanvas.style.width = rect.width + 'px';
+  trailCanvas.style.height = rect.height + 'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+new ResizeObserver(()=>{ resizeCanvas(); buildTicks(); }).observe(analog);
+
+/* search with debounce and keyboard nav */
+let debTimer = 0, activeIndex = -1;
+function filterCountries(q){
+  const s = q.toLowerCase();
+  const pref = countryZones.filter(c => c.label.toLowerCase().startsWith(s));
+  const rest = countryZones.filter(c => !c.label.toLowerCase().startsWith(s) && c.label.toLowerCase().includes(s));
+  return [...pref, ...rest].slice(0,120);
+}
+function renderDropdown(list){
+  dropdown.innerHTML = ''; activeIndex = -1;
+  list.forEach(item=>{
+    const div = document.createElement('div'); div.className='item'; div.textContent=item.label;
+    div.addEventListener('click', ()=>{ selectedZone = item.tz; saveSettings(); playClick(); dropdown.classList.remove('show'); search.value = item.label; updateZoneMeta(); });
+    dropdown.appendChild(div);
+  });
+  dropdown.classList.toggle('show', list.length > 0);
+}
+search.addEventListener('input', e=>{
+  clearTimeout(debTimer);
+  const q = e.target.value.trim();
+  if (!q) { dropdown.classList.remove('show'); return; }
+  debTimer = setTimeout(()=> renderDropdown(filterCountries(q)), 120);
+});
+document.addEventListener('click', e => { if (!dropdown.contains(e.target) && e.target !== search) dropdown.classList.remove('show'); });
+search.addEventListener('keydown', e=>{
+  if (!dropdown.classList.contains('show')) return;
+  if (e.key === 'ArrowDown') { activeIndex = Math.min(activeIndex+1, dropdown.children.length-1); updateActive(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { activeIndex = Math.max(activeIndex-1, 0); updateActive(); e.preventDefault(); }
+  else if (e.key === 'Enter') { e.preventDefault(); const el = dropdown.children[activeIndex] || dropdown.children[0]; if (el) el.click(); }
+  else if (e.key === 'Escape') { dropdown.classList.remove('show'); }
+});
+function updateActive(){ [...dropdown.children].forEach((el,i)=> el.classList.toggle('active', i===activeIndex)); }
+
+/* saved cards */
+function renderSavedClocks(){
+  cityList.innerHTML = '';
+  savedClocks.forEach(item=>{
+    const card = document.createElement('div'); card.className='city-card';
+    const name = document.createElement('div'); name.className='city-name'; name.textContent = item.label;
+    const time = document.createElement('div'); time.className='city-time'; time.textContent = new Date().toLocaleTimeString('en-GB', { timeZone: item.tz, hour12 });
+    const remove = document.createElement('div'); remove.className='remove'; remove.title='Remove'; remove.textContent='×';
+    remove.addEventListener('click', ev => { ev.stopPropagation(); savedClocks = savedClocks.filter(c => c.tz !== item.tz); localStorage.setItem('savedClocks', JSON.stringify(savedClocks)); renderSavedClocks(); playClick(); });
+    card.appendChild(name); card.appendChild(time); card.appendChild(remove);
+    card.addEventListener('click', ()=>{ selectedZone = item.tz; saveSettings(); playClick(); updateZoneMeta(); });
+    cityList.appendChild(card);
+  });
+}
+function addCurrentZone(){
+  const found = countryZones.find(c => c.tz === selectedZone) || { label: selectedZone, tz: selectedZone };
+  if (!savedClocks.some(c => c.tz === found.tz)) {
+    savedClocks.push(found);
+    localStorage.setItem('savedClocks', JSON.stringify(savedClocks));
+    renderSavedClocks(); playClick();
+  }
+}
+addBtn.addEventListener('click', addCurrentZone);
+
+/* extra controls: 12/24, chime, sound mode, random color */
+const controls = document.querySelector('.controls');
+const fmtBtn = document.createElement('button'); fmtBtn.className='btn small'; fmtBtn.textContent = hour12 ? '12-hour' : '24-hour';
+fmtBtn.addEventListener('click', ()=>{ hour12 = !hour12; fmtBtn.textContent = hour12 ? '12-hour' : '24-hour'; saveSettings(); playClick(); }); controls.appendChild(fmtBtn);
+const chimeBtn = document.createElement('button'); chimeBtn.className='btn small'; chimeBtn.textContent = chimeEnabled ? 'Chime: On' : 'Chime: Off';
+chimeBtn.addEventListener('click', ()=>{ chimeEnabled = !chimeEnabled; chimeBtn.textContent = chimeEnabled ? 'Chime: On' : 'Chime: Off'; saveSettings(); playClick(); }); controls.appendChild(chimeBtn);
+
+soundToggle.addEventListener('click', ()=>{ const modes=['both','beep','zap','off']; soundMode = modes[(modes.indexOf(soundMode)+1)%modes.length]; soundToggle.textContent = `Sounds: ${soundMode[0].toUpperCase()+soundMode.slice(1)}`; saveSettings(); playClick(); });
+randomColorBtn.addEventListener('click', ()=>{ const neon=['#00e6ff','#a13cff','#ff3cac','#39ff14','#ffea00']; document.documentElement.style.setProperty('--neon1', neon[Math.floor(Math.random()*neon.length)]); document.documentElement.style.setProperty('--neon2', neon[Math.floor(Math.random()*neon.length)]); document.documentElement.style.setProperty('--neon3', neon[Math.floor(Math.random()*neon.length)]); playClick(); });
+
+/* zone label */
+function updateZoneMeta(now = new Date()){
+  const info = dstInfo(selectedZone, now);
+  const abbr = zoneAbbr(selectedZone, now);
+  zoneLabel.textContent = `${abbr} • ${formatOffset(info.nowOff)}${info.observes ? (info.isDST ? ' • DST' : ' • Standard') : ''}`;
+}
+
+/* idle dim / brighten */
+function brighten(){ analog.classList.add('bright'); analog.classList.remove('dimmed'); lastInteract = Date.now(); }
+function maybeDim(){ if (Date.now() - lastInteract > 6000) { analog.classList.add('dimmed'); analog.classList.remove('bright'); } }
+['pointermove','pointerdown','wheel','keydown'].forEach(evt => window.addEventListener(evt, ()=>{ brighten(); setTimeout(maybeDim, 6200); }, { passive:true }));
+
+/* main frame update */
+function updateFrame(tz){
+  const now = new Date();
+  const local = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+  const ms = local.getMilliseconds();
+  const s = local.getSeconds() + ms/1000;
+  const m = local.getMinutes() + s/60;
+  const h = local.getHours() + m/60;
+
+  hourHand.style.transform = `rotate(${(h%12)*30}deg)`;
+  minuteHand.style.transform = `rotate(${m*6}deg)`;
+  secondHand.style.transform = `rotate(${s*6}deg)`;
+
+  const hueS = (s*6) % 360;
+  const hueM = (Date.now()/80) % 360;
+  const hueH = (Date.now()/200) % 360;
+
+  const colS = hslToRgbString(hueS,100,50);
+  const colM = hslToRgbString(hueM,100,50);
+  const colH = hslToRgbString(hueH,100,50);
+
+  document.documentElement.style.setProperty('--trailColor', colS);
+  document.documentElement.style.setProperty('--minuteColor', colM);
+  document.documentElement.style.setProperty('--hourColor', colH);
+  document.documentElement.style.setProperty('--faceGlow', colH);
+
+  tickEls.forEach((t,i)=>{
+    if (i%5===0) {
+      t.style.background = `linear-gradient(180deg, ${rgba(colH,0.9)}, ${rgba(colH,0.3)})`;
+      t.style.boxShadow = `0 0 10px ${rgba(colH,0.35)}`;
+    } else {
+      t.style.background = `linear-gradient(180deg, ${rgba(colS,0.7)}, ${rgba(colS,0.15)})`;
+      t.style.boxShadow = `0 0 8px ${rgba(colS,0.25)}`;
+    }
+  });
+
+  digital.textContent = local.toLocaleTimeString('en-GB', { hour12 });
+
+  if (chimeEnabled && audioCtx.state === 'running') {
+    if (Math.floor(s) === 0 && local.getMinutes() === 0) {
+      const hr = local.getHours();
+      if (lastChimeHour !== hr) {
+        playChime(Math.min((hr%12)||12, 6));
+        lastChimeHour = hr;
+      }
+    }
+  }
+
+  const key = `${local.getHours()}:${local.getMinutes()}`;
+  if (key !== lastZoneMinute) {
+    updateZoneMeta(now);
+    lastZoneMinute = key;
+  }
+
+  drawTrailAndRing(s*6, colS);
+}
+
+function drawTrailAndRing(angleDegrees, neon){
+  const rect = analog.getBoundingClientRect();
+  const cx = rect.width/2, cy = rect.height/2;
+  const R = Math.min(cx, cy) - 10;
+  const L = R * 0.9;
+
+  ctx.save(); ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fillRect(0,0,trailCanvas.width, trailCanvas.height); ctx.restore();
+
+  ctx.save(); ctx.translate(cx, cy); const ang = angleDegrees*Math.PI/180 - Math.PI/2; ctx.rotate(ang);
+  ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = Math.max(2, R*0.018); ctx.shadowColor = neon; ctx.shadowBlur = 18;
+  const grad = ctx.createLinearGradient(0, -L, 0, 0);
+  grad.addColorStop(0, rgba(neon,0.95)); grad.addColorStop(0.42, rgba(neon,0.35)); grad.addColorStop(1, rgba(neon,0));
+  ctx.strokeStyle = grad; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-L); ctx.stroke(); ctx.restore();
+
+  ctx.save(); ctx.translate(cx, cy); ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = Math.max(2, R*0.03); ctx.strokeStyle = rgba(neon,0.6);
+  ctx.beginPath(); ctx.arc(0,0,R, -Math.PI/2, (angleDegrees*Math.PI/180) - Math.PI/2, false); ctx.stroke(); ctx.restore();
+}
+
+/* per-second update for saved clocks times */
+setInterval(()=>{
+  document.querySelectorAll('.city-card').forEach(card=>{
+    const label = card.querySelector('.city-name').textContent;
+    const tzObj = savedClocks.find(s => s.label === label);
+    if (tzObj) card.querySelector('.city-time').textContent = new Date().toLocaleTimeString('en-GB', { timeZone: tzObj.tz, hour12 });
+  });
+}, 1000);
+
+/* keyboard shortcuts */
+document.addEventListener('keydown', e=>{
+  if (e.key === 'Enter' && document.activeElement !== search) addCurrentZone();
+  if (e.key === 'Escape') dropdown.classList.remove('show');
+});
+
+/* animation loop */
+function frameLoop(){ updateFrame(selectedZone); requestAnimationFrame(frameLoop); }
+
+/* init */
+function init(){
+  resizeCanvas(); buildTicks(); renderSavedClocks(); updateZoneMeta();
+  const found = countryZones.find(c => c.tz === selectedZone);
+  if (found) search.value = found.label;
+  analog.classList.add('bright'); setTimeout(maybeDim, 6200);
+
+  hourHand.style.background = 'var(--hourColor)';
+  hourHand.style.boxShadow = '0 0 6px var(--hourColor), 0 0 12px var(--hourColor)';
+  minuteHand.style.background = 'var(--minuteColor)';
+  minuteHand.style.boxShadow = '0 0 6px var(--minuteColor), 0 0 12px var(--minuteColor)';
+  secondHand.style.background = 'linear-gradient(to bottom, var(--trailColor) 0%, rgba(255,255,255,0.6) 30%, rgba(255,255,255,0.15) 60%, rgba(255,255,255,0) 100%)';
+  secondHand.style.boxShadow = '0 0 8px var(--trailColor), 0 0 15px var(--trailColor)';
+
+  frameLoop();
+}
+init();
+
+window.addEventListener('beforeunload', ()=>{ localStorage.setItem('savedClocks', JSON.stringify(savedClocks)); saveSettings(); });
+</script>
+</body>
+</html>
